@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>İstanbul Nabzı</title>
+<meta name="description" content="İstanbul trafiği şu an normal mi, neden yoğun, nerede park yeri var, dün yollarda ne oldu? İBB açık verisiyle, dakikalar içinde güncellenir.">
+<meta property="og:title" content="İstanbul Nabzı">
+<meta property="og:description" content="Trafik şu an normal mi, neden yoğun, gideceğin ilçede otopark dolu mu? İBB açık verisiyle.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 17h7l3-8 5 15 3-7h10' fill='none' stroke='%232a78d6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css?v=a2a47369">
+</head>
+<body>
+<header class="hero-band">
+  <div class="wrap top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 17h7l3-8 5 15 3-7h10"/></svg>
+      <span>İstanbul Nabzı</span>
+    </div>
+    <p class="updated" id="updated">Yükleniyor…</p>
+  </div>
+  <div class="wrap hero">
+    <div class="now">
+      <p class="eyebrow">Trafik şu an</p>
+      <h1 id="headline">…</h1>
+      <p class="sub" id="subline"></p>
+      <div class="gauge" id="gauge" aria-hidden="true"></div>
+      <p class="outlook" id="outlook"></p>
+      <details class="explain">
+        <summary>Endeks ne demek?</summary>
+        <p>İBB'nin şehir geneli trafik yoğunluğu ölçüsü, 0 ile 100 arası. Gece 2-3'e iner, sıradan bir akşam 70-80'e çıkar. Tek başına bir sayıdan çok, <b>aynı gün ve saatin son 8 haftasıyla</b> karşılaştırınca anlam kazanıyor: yukarıdaki cümle o karşılaştırma.</p>
+      </details>
+    </div>
+    <div class="why">
+      <h2>Neden?</h2>
+      <ul id="why"></ul>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" id="live-card">
+    <div class="card-head">
+      <h2>Şu an yollarda</h2>
+      <p class="note" id="live-note">İBB Ulaşım Yönetim Merkezi'nin anlık duyuruları.</p>
+    </div>
+    <ul class="live" id="live"></ul>
+    <details class="works" id="works-box" hidden>
+      <summary id="works-sum">Süren yol çalışmaları</summary>
+      <ul class="live" id="works"></ul>
+    </details>
+  </section>
+
+  <section class="card" id="route-card">
+    <div class="card-head">
+      <h2>Yolum ne durumda?</h2>
+      <p class="note">Nereden nereye gideceğini yaz ya da haritaya iki kez dokun; rotan üstündeki ana yolların anlık hızına bakalım.</p>
+    </div>
+    <form class="route-form" id="route-form">
+      <label><span>Nereden</span><input id="r-from" placeholder="ör. Kadıköy İskele" autocomplete="off"></label>
+      <button type="button" class="ghost" id="r-me" title="Konumumu kullan">📍 Konumum</button>
+      <label><span>Nereye</span><input id="r-to" placeholder="ör. Levent Metro" autocomplete="off"></label>
+      <button type="submit" id="r-go">Rotayı kontrol et</button>
+    </form>
+    <p class="route-msg" id="route-msg"></p>
+    <div class="park-grid">
+      <div class="map" id="route-map" role="region" aria-label="Rota haritası"></div>
+      <div class="park-side" id="route-out">
+        <p class="empty">Rota sonucu burada görünecek.</p>
+      </div>
+    </div>
+    <p class="legend" id="route-legend"></p>
+  </section>
+
+  <section class="card" id="roads-live">
+    <div class="card-head row">
+      <div>
+        <h2>Canlı trafik haritası</h2>
+        <p class="note" id="roads-live-note">İBB'nin ölçtüğü ana yollarda anlık hız.</p>
+      </div>
+      <label class="picker">
+        <span>İlçe</span>
+        <select id="r-district"></select>
+      </label>
+    </div>
+    <div class="stats wide" id="rd-stats"></div>
+    <div class="park-grid">
+      <div class="map" id="live-map" role="region" aria-label="Canlı trafik haritası"></div>
+      <div class="park-side">
+        <h3>En yavaş yollar <span class="muted">yollar boşkenki hızına göre</span></h3>
+        <ol class="hot" id="slow-list"></ol>
+      </div>
+    </div>
+    <p class="legend" id="speed-legend"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 id="today-title">Bugün, olağan bir günle</h2>
+      <p class="note">Mavi çizgi bugün; gri bant bu günün olağan aralığı, kesikli çizgi olağanı. Sağdaki kesikli kısım günün geri kalanında normalde ne beklendiği.</p>
+    </div>
+    <div class="chart" id="today-chart"></div>
+  </section>
+
+  <section class="card" id="parking">
+    <div class="card-head row">
+      <div>
+        <h2>Nereye park ederim?</h2>
+        <p class="note" id="parking-note">İSPARK otoparkları, anlık boş yer. Gideceğin ilçeyi seç.</p>
+      </div>
+      <label class="picker">
+        <span>İlçe</span>
+        <select id="district"></select>
+      </label>
+    </div>
+    <div class="park-grid">
+      <div class="map" id="park-map" role="region" aria-label="Otopark haritası"></div>
+      <div class="park-side">
+        <div class="stats" id="park-stats"></div>
+        <ol class="lots" id="lots"></ol>
+      </div>
+    </div>
+    <p class="legend" id="park-legend"></p>
+  </section>
+
+  <section class="card" id="roads">
+    <div class="card-head">
+      <h2 id="roads-title">Yollarda ne oldu?</h2>
+      <p class="note" id="roads-note"></p>
+    </div>
+    <div id="yesterday"></div>
+    <h3 class="mt" id="map-day"></h3>
+    <div class="stats wide" id="road-stats"></div>
+    <div class="park-grid">
+      <div class="map" id="road-map" role="region" aria-label="Kaza ve yol olayları haritası"></div>
+      <div class="park-side">
+        <h3>Kara noktalar <span class="muted">son 12 ay, kaza sayısı</span></h3>
+        <ol class="hot" id="hotspots"></ol>
+      </div>
+    </div>
+    <p class="legend" id="road-legend"></p>
+    <h3 class="mt">Kazalar en çok kaçta oluyor?</h3>
+    <div class="chart chart-mid" id="hour-chart"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Ne zaman çıkmamalı?</h2>
+      <p class="note" id="heat-note">Haftanın her saatinde olağan trafik endeksi, son 8 hafta (tatiller hariç). Koyu = yoğun.</p>
+    </div>
+    <div class="heat" id="heat"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Son 7 gün</h2>
+      <p class="note">Turuncu alanlar öne çıkan olaylar; altta saatlik yağış.</p>
+    </div>
+    <div class="chart" id="week-chart"></div>
+    <div class="chart chart-small" id="rain-chart"></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="card-head">
+        <h2>Öne çıkanlar</h2>
+        <p class="note">Olağandan belirgin sapan dönemler ve rekorlar, son 2 hafta.</p>
+      </div>
+      <ol class="feed" id="feed"></ol>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Yaklaşan takvim</h2>
+        <p class="note">Tatiller, maçlar, yol kapatmaları.</p></div>
+      <ul class="upcoming" id="upcoming"></ul>
+    </div>
+  </section>
+
+  <section class="card method">
+    <h2>Nasıl çalışıyor?</h2>
+    <p>Bir ev sunucusu İBB Açık Veri Portalı'ndan trafik endeksini 15 dakikada, İSPARK doluluğunu 10 dakikada bir çeker. Her ölçüm, haftanın aynı günü ve saatinin son 8 haftasıyla karşılaştırılır (bayramlar ve okulların yaz tatili hariç). Olağandan sapma medyan ve medyan mutlak sapmaya dayanan bir skorla ölçülür; en az 30 dakika belirgin sapma olay sayılır.</p>
+    <p>"Neden?" maddeleri bir takvimden (bayram, okul tatili, maç, maraton), 6 noktanın yağış verisinden ve İBB Ulaşım Yönetim Merkezi'nin kaza kayıtlarından gelir. UYM kayıtları açık veri olarak gecede bir yayınlandığından harita 1-2 gün geriden gelir; anlık duyurular için <a href="https://uym.ibb.gov.tr" rel="noopener">UYM</a>. Can kaybı olan kazalar haritada gösterilmez, yalnızca sayılara girer.</p>
+    <p class="sources">Veri: <a href="https://data.ibb.gov.tr">İBB Açık Veri Portalı</a> (İBB Açık Veri Lisansı) · Hava: <a href="https://open-meteo.com">Open-Meteo.com</a> (CC BY 4.0) · Yol hızları: <a href="https://uym.ibb.gov.tr/yharita6/">İBB Trafik Yoğunluk Haritası</a> · Harita, adres ve rota: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları, Nominatim, OSRM. Bu site İBB'nin resmi bir ürünü değildir.</p>
+  </section>
+</main>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js?v=ad076a7b"></script>
+</body>
+</html>
